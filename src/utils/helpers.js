@@ -98,51 +98,24 @@ export const generateQRCode = async (text) => {
 export const seedVerificationDb = () => {
   const existing = localStorage.getItem('gsa_certificates');
   if (!existing) {
-    const mockCerts = [
-      {
-        id: 'GSA-20260615-RHLK',
-        name: 'Rahul Kumar',
-        date: '15 June 2026',
-        email: 'rahul.kumar@university.edu',
-        issuer: 'Shradha Sangita Dash',
-        role: 'Google Student Ambassador',
-        generatedBy: {
-          name: 'Shradha Sangita Dash',
-          gid: 'GSA-ADMIN-01',
-          email: 'shradhasangitadash@gmail.com'
-        },
-        createdAt: '2026-06-15T10:30:00Z'
-      },
-      {
-        id: 'GSA-20260615-PRYS',
-        name: 'Priya Singh',
-        date: '15 June 2026',
-        email: 'priya.singh@college.edu',
-        issuer: 'Shradha Sangita Dash',
-        role: 'Google Student Ambassador',
-        generatedBy: {
-          name: 'Shradha Sangita Dash',
-          gid: 'GSA-ADMIN-01',
-          email: 'shradhasangitadash@gmail.com'
-        },
-        createdAt: '2026-06-15T10:32:00Z'
-      },
-      {
-        id: 'GSA-20260615-AMND',
-        name: 'Aman Das',
-        date: '15 June 2026',
-        email: 'aman.das@inst.edu',
-        issuer: 'Shradha Sangita Dash',
-        role: 'Google Student Ambassador',
-        generatedBy: {
-          name: 'Shradha Sangita Dash',
-          gid: 'GSA-ADMIN-01',
-          email: 'shradhasangitadash@gmail.com'
-        },
-        createdAt: '2026-06-15T10:35:00Z'
+    localStorage.setItem('gsa_certificates', JSON.stringify([]));
+  } else {
+    try {
+      const parsed = JSON.parse(existing);
+      if (Array.isArray(parsed)) {
+        // Filter out the 3 default mock certificate IDs to clear them
+        const cleaned = parsed.filter(cert => 
+          cert.id !== 'GSA-20260615-RHLK' && 
+          cert.id !== 'GSA-20260615-PRYS' && 
+          cert.id !== 'GSA-20260615-AMND'
+        );
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('gsa_certificates', JSON.stringify(cleaned));
+        }
       }
-    ];
-    localStorage.setItem('gsa_certificates', JSON.stringify(mockCerts));
+    } catch (e) {
+      localStorage.setItem('gsa_certificates', JSON.stringify([]));
+    }
   }
 };
 
@@ -185,4 +158,25 @@ export const removeImageBackground = (imageSrc, threshold = 200) => {
     };
   });
 };
+
+export const seedFeedbacksDb = () => {
+  const existing = localStorage.getItem('gsa_feedbacks');
+  if (!existing) {
+    localStorage.setItem('gsa_feedbacks', JSON.stringify([]));
+  } else {
+    try {
+      const parsed = JSON.parse(existing);
+      if (Array.isArray(parsed)) {
+        // Clear mock feedbacks from browser state if they exist
+        const cleaned = parsed.filter(fb => fb.id !== 'fb-1' && fb.id !== 'fb-2');
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('gsa_feedbacks', JSON.stringify(cleaned));
+        }
+      }
+    } catch (e) {
+      localStorage.setItem('gsa_feedbacks', JSON.stringify([]));
+    }
+  }
+};
+
 

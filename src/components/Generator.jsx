@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Download, Image as ImageIcon, Type, Calendar, FileText, CheckCircle2, 
-  Settings, Move, Sliders, Check, RefreshCw
+  Settings, Move, Sliders, Check, RefreshCw, Mail, Send
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import DraggableItem from './DraggableItem';
@@ -71,12 +71,20 @@ export default function Generator({ user }) {
     sig: { scale: 0.9 }
   });
 
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [shareFormat, setShareFormat] = useState('pdf'); // 'pdf' or 'png'
+  const [shareNotice, setShareNotice] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Derive structural values of custom texts to prevent resetting registration/IDs on layout drag/style changes
+  const customTextsContent = customTexts.map(i => `${i.id}:${i.text}:${i.show}`).join('|');
+
   // Generate Unique ID on mount or Name/Date/CustomTexts change
   useEffect(() => {
     const id = generateCertificateId();
     setCertId(id);
     setIsGenerated(false);
-  }, [participantName, eventDate, customTexts]);
+  }, [participantName, eventDate, showName, showDate, customTextsContent]);
 
   // Adjust active element if it gets hidden
   useEffect(() => {
@@ -280,6 +288,127 @@ export default function Generator({ user }) {
     pdf.save(`GSA_Certificate_${participantName.replace(/\s+/g, '_')}.pdf`);
   };
 
+  const generatePDFBlob = async () => {
+    const canvas = await drawCertificateToCanvas();
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [2000, 1414]
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, 2000, 1414);
+    return pdf.output('blob');
+  };
+
+  const generatePNGBlob = async () => {
+    const canvas = await drawCertificateToCanvas();
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/png');
+    });
+  };
+
+  const uploadCertificate = async (format) => {
+    try {
+      let blob;
+      let filename = `GSA_Certificate_${participantName.replace(/\s+/g, '_')}`;
+      if (format === 'pdf') {
+        blob = await generatePDFBlob();
+        filename += '.pdf';
+      } else {
+        blob = await generatePNGBlob();
+        filename += '.png';
+      }
+
+      const file = new File([blob], filename, { type: format === 'pdf' ? 'application/pdf' : 'image/png' });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('expire', '86400'); // link expires in 24 hours
+
+      const response = await fetch('https://tmpfiles.org/api/v1/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+      const json = await response.json();
+      if (json.status === 'success' && json.data?.url) {
+        // Convert preview page link to direct download link: https://tmpfiles.org/dl/{id}/{name}
+        return json.data.url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+      }
+      throw new Error('Invalid upload response structure');
+    } catch (err) {
+      console.error('Anonymous certificate upload failed:', err);
+      return null;
+    }
+  };
+
+  const handleSendToGmail = async (e) => {
+    e.preventDefault();
+    if (!recipientEmail.trim()) return;
+
+    setIsUploading(true);
+    setShareNotice('Uploading certificate to secure host & preparing Gmail...');
+
+    // Try to upload certificate to tmpfiles.org
+    const uploadedUrl = await uploadCertificate(shareFormat);
+
+    // Also download locally for admin's local copy/backup
+    if (shareFormat === 'pdf') {
+      await handleDownloadPDF();
+    } else {
+      await handleDownloadPNG();
+    }
+
+    const subject = `Certified GSA Certificate - ${participantName}`;
+    let body = '';
+
+    if (uploadedUrl) {
+      body = `Hi ${participantName},
+
+Thank you for participating in the Google Student Ambassador event.
+
+Your certified GSA certificate has been generated and logged under ID: ${certId}.
+
+You can download your certificate directly using the link below:
+${uploadedUrl}
+
+(Note: The link will remain active for 24 hours. A copy has also been saved to your local downloads.)
+
+Best wishes,
+Shradha Sangita Dash
+Google Student Ambassador`;
+    } else {
+      body = `Hi ${participantName},
+
+Thank you for participating in the Google Student Ambassador event.
+
+Your certified GSA certificate has been generated and logged under ID: ${certId}.
+
+We have downloaded the certificate file (${shareFormat.toUpperCase()}) to your computer. Please attach the downloaded file from your Downloads folder to this email draft and send it.
+
+Best wishes,
+Shradha Sangita Dash
+Google Student Ambassador`;
+    }
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.open(gmailUrl, '_blank');
+
+    setIsUploading(false);
+    if (uploadedUrl) {
+      setShareNotice('Success! Gmail opened with the direct certificate download link prefilled in the body!');
+    } else {
+      setShareNotice('Gmail opened. Please drag & drop the downloaded certificate from your downloads folder.');
+    }
+    
+    setTimeout(() => {
+      setShareNotice('');
+    }, 6000);
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Design Workspace: 7 cols */}
@@ -434,20 +563,106 @@ export default function Generator({ user }) {
             </button>
             <button
               onClick={handleDownloadPNG}
-              className="flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:bg-slate-50 active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:bg-slate-50 active:scale-95 shadow-sm bg-white"
             >
               <Download className="h-4 w-4 text-google-blue" />
               Download PNG
             </button>
             <button
               onClick={handleDownloadPDF}
-              className="flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:bg-slate-50 active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-semibold text-sm transition-all hover:bg-slate-50 active:scale-95 shadow-sm bg-white"
             >
               <FileText className="h-4 w-4 text-google-red" />
               Download PDF
             </button>
           </div>
         </div>
+
+        {/* Send to Gmail Form - Appears after Locking/Logging */}
+        {isGenerated && (
+          <div className="glass-panel bg-white/70 border border-google-green/20 rounded-2xl p-6 shadow-glass space-y-4 animate-float text-left" style={{ animationIterationCount: 1, animationDuration: '0.5s' }}>
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+              <div className="p-2 bg-google-blue/10 text-google-blue rounded-xl">
+                <Mail className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Send to Participation gmail id</h3>
+                <p className="text-[10px] text-slate-400 font-semibold uppercase">Automatic Certificate Delivery</p>
+              </div>
+            </div>
+
+            {shareNotice && (
+              <div className="bg-sky-50 border border-sky-200 text-sky-800 text-xs rounded-xl p-3 flex items-start gap-2 animate-pulse-ring">
+                <Check className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
+                <p className="font-semibold">{shareNotice}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSendToGmail} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Gmail Address input */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 block">Enter gmail id</label>
+                  <input
+                    type="email"
+                    required
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="enter gmail id"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs focus:ring-google-blue/20 focus:border-google-blue transition-all"
+                  />
+                </div>
+
+                {/* File Format Selector */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600 block">Certificate Format (PDF or PNG)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShareFormat('pdf')}
+                      className={`py-1.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        shareFormat === 'pdf'
+                          ? 'border-google-blue bg-google-blue/5 text-google-blue font-extrabold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareFormat('png')}
+                      className={`py-1.5 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        shareFormat === 'png'
+                          ? 'border-google-blue bg-google-blue/5 text-google-blue font-extrabold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      PNG
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isUploading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-google-blue hover:bg-google-blue/90 text-white font-bold text-sm transition-all active:scale-95 shadow-md shadow-google-blue/15 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Uploading Certificate...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Send to Participation gmail id
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
 
       </div>
 
