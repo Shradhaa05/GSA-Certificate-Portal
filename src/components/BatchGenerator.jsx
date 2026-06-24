@@ -147,7 +147,7 @@ export default function BatchGenerator({ user }) {
         name: p.name,
         date: p.date,
         customText: p.customText || '',
-        email: 'student.participant@gsa.org',
+        email: p.email || 'student.participant@gsa.org',
         issuer: 'Shradha Sangita Dash',
         role: 'Google Student Ambassador',
         generatedBy: {
@@ -250,10 +250,10 @@ export default function BatchGenerator({ user }) {
             Required CSV Format Structure
           </p>
           <pre className="font-mono bg-slate-100 p-1.5 rounded text-[10px] text-slate-600 overflow-x-auto">
-{`Name,Date,Text (Optional)
-Rahul Kumar,15 June 2026,for outstanding performance
-Priya Singh,15 June 2026,for excellence in web dev
-Aman Das,15 June 2026,`}
+{`Name,Date,Email (Optional),Text (Optional)
+Rahul Kumar,15 June 2026,rahul@gmail.com,for outstanding performance
+Priya Singh,15 June 2026,priya@gmail.com,for excellence in web dev
+Aman Das,15 June 2026,,`}
           </pre>
         </div>
       </div>
@@ -320,6 +320,7 @@ Aman Das,15 June 2026,`}
                   <th className="py-2.5 px-4">#</th>
                   <th className="py-2.5 px-4">Participant Name</th>
                   <th className="py-2.5 px-4">Event Date</th>
+                  <th className="py-2.5 px-4">Email</th>
                   <th className="py-2.5 px-4">Custom Text</th>
                 </tr>
               </thead>
@@ -329,6 +330,7 @@ Aman Das,15 June 2026,`}
                     <td className="py-2 px-4 font-mono text-slate-400">{index + 1}</td>
                     <td className="py-2 px-4 font-semibold text-slate-800">{p.name}</td>
                     <td className="py-2 px-4">{p.date}</td>
+                    <td className="py-2 px-4 font-mono text-slate-500">{p.email || '—'}</td>
                     <td className="py-2 px-4 text-slate-500 italic">{p.customText || '—'}</td>
                   </tr>
                 ))}

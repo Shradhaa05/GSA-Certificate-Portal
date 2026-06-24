@@ -28,6 +28,7 @@ export const parseCSV = (csvText) => {
   const header = lines[0].split(',').map(h => h.trim().toLowerCase());
   const nameIndex = header.findIndex(h => h.includes('name'));
   const dateIndex = header.findIndex(h => h.includes('date'));
+  const emailIndex = header.findIndex(h => h.includes('email') || h.includes('mail'));
   const textIndex = header.findIndex(h => h.includes('text') || h.includes('desc') || h.includes('custom'));
   
   if (nameIndex === -1 || dateIndex === -1) {
@@ -63,10 +64,11 @@ export const parseCSV = (csvText) => {
     
     const name = cleanedCols[nameIndex];
     const date = cleanedCols[dateIndex];
+    const email = emailIndex !== -1 && cleanedCols[emailIndex] ? cleanedCols[emailIndex] : '';
     const customText = textIndex !== -1 && cleanedCols[textIndex] ? cleanedCols[textIndex] : '';
     
     if (name && date) {
-      results.push({ name, date, customText });
+      results.push({ name, date, email, customText });
     }
   }
   

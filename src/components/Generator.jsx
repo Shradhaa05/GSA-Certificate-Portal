@@ -157,7 +157,7 @@ export default function Generator({ user }) {
       name: showName ? participantName : '',
       date: showDate ? eventDate : '',
       customTexts: customTexts.filter(i => i.show).map(i => ({ id: i.id, text: i.text, x: i.x, y: i.y })),
-      email: 'student.participant@gsa.org', // Default filler
+      email: recipientEmail.trim() || 'student.participant@gsa.org',
       issuer: 'Shradha Sangita Dash',
       role: 'Google Student Ambassador',
       generatedBy: {
@@ -344,8 +344,99 @@ export default function Generator({ user }) {
     }
   };
 
+  const handleShareNative = async () => {
+    if (!recipientEmail.trim()) {
+      alert('Please enter a recipient email.');
+      return;
+    }
+
+    setIsUploading(true);
+    setShareNotice('Generating certificate and opening share panel...');
+
+    try {
+      let blob;
+      let filename = `GSA_Certificate_${participantName.replace(/\s+/g, '_')}`;
+      let mimeType = '';
+      if (shareFormat === 'pdf') {
+        blob = await generatePDFBlob();
+        filename += '.pdf';
+        mimeType = 'application/pdf';
+      } else {
+        blob = await generatePNGBlob();
+        filename += '.png';
+        mimeType = 'image/png';
+      }
+
+      const file = new File([blob], filename, { type: mimeType });
+      const subject = `Certified GSA Certificate - ${participantName}`;
+      const body = `Hi ${participantName},
+
+Thank you for participating in the Google Student Ambassador event.
+
+Your certified GSA certificate has been generated and logged under ID: ${certId}.
+
+Best wishes,
+Shradha Sangita Dash
+Google Student Ambassador`;
+
+      const shareData = {
+        files: [file],
+        title: subject,
+        text: body
+      };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        setShareNotice('Success! Certificate file shared successfully.');
+      } else {
+        throw new Error('Web Share API for files is not supported on this browser.');
+      }
+    } catch (err) {
+      console.error('Sharing failed:', err);
+      setShareNotice('Sharing failed or not supported. Please use Gmail Web or Mail Client options below.');
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setShareNotice(''), 6000);
+    }
+  };
+
+  const handleSendMailto = async () => {
+    if (!recipientEmail.trim()) return;
+
+    setIsUploading(true);
+    setShareNotice('Opening local mail client...');
+
+    // Also download locally for admin's local copy/backup
+    if (shareFormat === 'pdf') {
+      await handleDownloadPDF();
+    } else {
+      await handleDownloadPNG();
+    }
+
+    const subject = `Certified GSA Certificate - ${participantName}`;
+    const body = `Hi ${participantName},
+
+Thank you for participating in the Google Student Ambassador event.
+
+Your certified GSA certificate has been generated and logged under ID: ${certId}.
+
+(Note: The certificate file (${shareFormat.toUpperCase()}) has been downloaded to your machine. Please attach it to this email draft.)
+
+Best wishes,
+Shradha Sangita Dash
+Google Student Ambassador`;
+
+    const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    window.location.href = mailtoUrl;
+
+    setIsUploading(false);
+    setShareNotice('Success! Local mail client opened. Please attach the downloaded certificate.');
+    setTimeout(() => setShareNotice(''), 6000);
+  };
+
   const handleSendToGmail = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!recipientEmail.trim()) return;
 
     setIsUploading(true);
@@ -399,7 +490,7 @@ Google Student Ambassador`;
 
     setIsUploading(false);
     if (uploadedUrl) {
-      setShareNotice('Success! Gmail opened with the direct certificate download link prefilled in the body!');
+      setShareNotice('Success! Gmail opened with the direct certificate download link prefilled in the body! You can also attach the downloaded file.');
     } else {
       setShareNotice('Gmail opened. Please drag & drop the downloaded certificate from your downloads folder.');
     }
@@ -578,7 +669,7 @@ Google Student Ambassador`;
           </div>
         </div>
 
-        {/* Send to Gmail Form - Appears after Locking/Logging */}
+        {/* Send & Share Options - Appears after Locking/Logging */}
         {isGenerated && (
           <div className="glass-panel bg-white/70 border border-google-green/20 rounded-2xl p-6 shadow-glass space-y-4 animate-float text-left" style={{ animationIterationCount: 1, animationDuration: '0.5s' }}>
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -586,7 +677,7 @@ Google Student Ambassador`;
                 <Mail className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800">Send to Participation gmail id</h3>
+                <h3 className="text-sm font-bold text-slate-800">Send & Share Certificate</h3>
                 <p className="text-[10px] text-slate-400 font-semibold uppercase">Automatic Certificate Delivery</p>
               </div>
             </div>
@@ -598,17 +689,17 @@ Google Student Ambassador`;
               </div>
             )}
 
-            <form onSubmit={handleSendToGmail} className="space-y-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Gmail Address input */}
+                {/* Gmail Address display/input */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600 block">Enter gmail id</label>
+                  <label className="text-xs font-semibold text-slate-600 block">Recipient Email ID</label>
                   <input
                     type="email"
                     required
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
-                    placeholder="enter gmail id"
+                    placeholder="student.participant@gmail.com"
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 text-xs focus:ring-google-blue/20 focus:border-google-blue transition-all"
                   />
                 </div>
@@ -643,24 +734,50 @@ Google Student Ambassador`;
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isUploading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-google-blue hover:bg-google-blue/90 text-white font-bold text-sm transition-all active:scale-95 shadow-md shadow-google-blue/15 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUploading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Uploading Certificate...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Send to Participation gmail id
-                  </>
-                )}
-              </button>
-            </form>
+              {/* Delivery Action Options */}
+              <div className="space-y-3 pt-2">
+                <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Choose Delivery Method</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  
+                  {/* Option 1: Web Share API (Attach File Directly) */}
+                  <button
+                    type="button"
+                    onClick={handleShareNative}
+                    disabled={isUploading || !recipientEmail.trim()}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-google-green bg-google-green/5 text-google-green hover:bg-google-green/10 transition-all active:scale-95 disabled:opacity-50 cursor-pointer text-center space-y-1.5"
+                  >
+                    <Send className="h-5 w-5 shrink-0" />
+                    <span className="text-xs font-bold block">Share Directly</span>
+                    <span className="text-[9px] font-semibold text-slate-400 block leading-tight">Attaches certificate file on mobile/mac</span>
+                  </button>
+
+                  {/* Option 2: Gmail Web Compose (With Direct Link) */}
+                  <button
+                    type="button"
+                    onClick={() => handleSendToGmail()}
+                    disabled={isUploading || !recipientEmail.trim()}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-white text-google-blue hover:bg-google-blue/5 hover:border-google-blue/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer text-center space-y-1.5"
+                  >
+                    <Mail className="h-5 w-5 shrink-0" />
+                    <span className="text-xs font-bold block">Gmail Web</span>
+                    <span className="text-[9px] font-semibold text-slate-400 block leading-tight">Drafts email with secure direct link</span>
+                  </button>
+
+                  {/* Option 3: Local Mail client (mailto) */}
+                  <button
+                    type="button"
+                    onClick={handleSendMailto}
+                    disabled={isUploading || !recipientEmail.trim()}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 cursor-pointer text-center space-y-1.5"
+                  >
+                    <Mail className="h-5 w-5 text-slate-500 shrink-0" />
+                    <span className="text-xs font-bold block">Mail Client</span>
+                    <span className="text-[9px] font-semibold text-slate-400 block leading-tight">Opens Apple Mail/Outlook draft</span>
+                  </button>
+
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -720,6 +837,17 @@ Google Student Ambassador`;
                 disabled={!showDate}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 text-sm focus:ring-google-red/20 focus:border-google-red transition-all disabled:opacity-50 disabled:bg-slate-50"
                 placeholder="Event Date"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600 block text-left">Participant Email</label>
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-slate-800 text-sm focus:ring-google-red/20 focus:border-google-red transition-all"
+                placeholder="student.participant@gmail.com"
               />
             </div>
 
