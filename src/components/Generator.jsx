@@ -518,12 +518,15 @@ Google Student Ambassador`;
           </div>
 
           {/* Scalable landscape viewport */}
-          <div className="relative w-full aspect-[1.414/1] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-google-card certificate-preview-container">
+          <div 
+            className="relative w-full aspect-[1.414/1] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden shadow-google-card certificate-preview-container"
+            style={{ containerType: 'inline-size' }}
+          >
             {/* Template image background */}
             <img 
               src={templateUrl} 
               alt="Template" 
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none"
             />
 
             {/* Draggable overlays */}
@@ -539,12 +542,12 @@ Google Student Ambassador`;
               >
                 <div 
                   style={{ 
-                    fontSize: `${styles.name.fontSize * 0.9}px`, // Scaled for live viewport size
+                    fontSize: `${styles.name.fontSize * 0.11}cqw`, // Scaled proportionally based on container width
                     fontWeight: styles.name.fontWeight === 'bold' ? '700' : '500',
                     color: styles.name.color,
                     fontFamily: styles.name.fontFamily || 'Outfit'
                   }}
-                  className="leading-none px-2 py-1 select-none pointer-events-none select-none border border-transparent group-hover:border-dashed group-hover:border-slate-400"
+                  className="leading-none select-none pointer-events-none"
                 >
                   {participantName || 'Write Name'}
                 </div>
@@ -562,11 +565,11 @@ Google Student Ambassador`;
               >
                 <div 
                   style={{ 
-                    fontSize: `${styles.date.fontSize * 0.9}px`,
+                    fontSize: `${styles.date.fontSize * 0.11}cqw`, // Scaled proportionally based on container width
                     color: styles.date.color,
                     fontFamily: styles.date.fontFamily || 'Outfit'
                   }}
-                  className="font-medium leading-none px-2 py-1 select-none pointer-events-none select-none border border-transparent group-hover:border-dashed group-hover:border-slate-400"
+                  className="font-medium leading-none select-none pointer-events-none"
                 >
                   {eventDate || '15 June 2026'}
                 </div>
@@ -587,12 +590,12 @@ Google Student Ambassador`;
                 >
                   <div 
                     style={{ 
-                      fontSize: `${item.fontSize * 0.9}px`,
+                      fontSize: `${item.fontSize * 0.11}cqw`, // Scaled proportionally based on container width
                       fontWeight: item.fontWeight === 'bold' ? '700' : '500',
                       color: item.color,
                       fontFamily: item.fontFamily || 'Outfit'
                     }}
-                    className="leading-none px-2 py-1 select-none pointer-events-none select-none border border-transparent group-hover:border-dashed group-hover:border-slate-400"
+                    className="leading-none select-none pointer-events-none"
                   >
                     {item.text || 'Add custom text here'}
                   </div>
@@ -614,8 +617,8 @@ Google Student Ambassador`;
                 <img
                   src={sigUrl}
                   alt="Signature"
-                  style={{ transform: `scale(${styles.sig.scale})` }}
-                  className="h-10 object-contain origin-top-left pointer-events-none select-none border border-transparent group-hover:border-dashed group-hover:border-slate-400"
+                  style={{ width: `${11 * styles.sig.scale}cqw`, height: 'auto' }} // Scaled proportionally based on container width
+                  className="object-contain origin-top-left pointer-events-none select-none"
                 />
               </DraggableItem>
             )}
